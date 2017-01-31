@@ -1,19 +1,18 @@
 package timebackup;
 
 import java.sql.*;
+import java.util.concurrent.Semaphore;
 
+/**
+ *
+ * @author yaakov
+ */
 public class Dbm {
 
     private static boolean inUse = false;
-
-    private static synchronized void setUse(Boolean use) {
-        if (use) {
-            inUse = true;
-        } else {
-            inUse = false;
-        }
-    }
-
+    //implement a semaphore to prevent database thread write lock and enable concurrency
+    private static final Semaphore smph = new Semaphore(1,true);
+    private synchronized Semaphore getSem(){return smph;}
     private static synchronized boolean getIfInUse() {
         return inUse;
     }
@@ -24,12 +23,10 @@ public class Dbm {
     //This constructor openes or creates the database provided by the arguement
     //NameOfDatabase
     public Dbm(String NameOfDatabase) {
-        while (getIfInUse() == true) {
-            //do nothing, just wait till it becomes available
-        }
-        //now that its available set it to in use
-        setUse(true);
+
         try {
+            //aquire a semaphore to prevent other thread from writing
+            getSem().acquire();
             //Database is checked for in project folder, if doesnt exist then creates
             //it
             c = DriverManager.getConnection("jdbc:sqlite:" + NameOfDatabase);
@@ -47,7 +44,7 @@ public class Dbm {
         } catch (Exception e) {
             System.out.println("Failed to close Database due to error: " + e.getMessage());
         } finally {
-            setUse(false);
+            getSem().release();
         }
     }
 
